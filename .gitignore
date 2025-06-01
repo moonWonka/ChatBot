@@ -1,0 +1,31 @@
+# Ignore environment variables
+.env
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Distribution / packaging
+.Python
+env/
+.venv/
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+
+# IDE specific files
+.vscode/
+.idea/
+
+# Python tool caches
+.mypy_cache/
+.pytest_cache/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Swap files
+*.swp
