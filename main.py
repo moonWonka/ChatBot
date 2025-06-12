@@ -65,7 +65,6 @@ def view_history():
 
 
 def main():
-    # Comment out or remove cargar_datos() if it's not needed every time
     # cargar_datos()
 
     while True:
