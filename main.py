@@ -1,5 +1,7 @@
-from gemini_model import call_gemini, generar_consulta_sql
+from gemini_model import call_gemini, generar_consulta_sql, generate_response_from_data # Added generate_response_from_data
 from db.history_operations import save_conversation, get_all_conversations, get_conversation_by_session_id, generate_session_id
+from db.connection import execute_query # Added
+from prompts.prompts import PROMPT_GENERAR_SQL, PROMPT_ANALISIS_MUSICAL # Added PROMPT_ANALISIS_MUSICAL
 
 # Variable global para controlar el estado de la conversación
 is_conversation_active = False
@@ -33,20 +35,19 @@ def start_new_chat():
     # Si llegamos aquí, no había conversación activa o el usuario eligió iniciar una nueva.
     is_conversation_active = True
     current_session_id = generate_session_id()
-    # print(f"Nueva sesión de conversación iniciada: {current_session_id}") # Optional: for debugging/info
 
-    print("\n--- Nuevo Chat con Gemini o Anthropic (Escribe 'salir' para terminar) ---\n")
-    modelo = ""
-    while modelo.lower() not in ["gemini", "anthropic"]:
-        modelo = input("Selecciona el modelo ('gemini' o 'anthropic'): ").strip()
-        if modelo.lower() not in ["gemini", "anthropic"]:
+    print("\n--- Nuevo Chat (Escribe 'salir' para terminar) ---\n")
+    modelo_sql_generation = "" # Renamed for clarity
+    while modelo_sql_generation.lower() not in ["gemini", "anthropic"]:
+        modelo_sql_generation = input("Selecciona el modelo para generación SQL ('gemini' o 'anthropic'): ").strip()
+        if modelo_sql_generation.lower() not in ["gemini", "anthropic"]:
             print("⚠️ Modelo no válido. Intenta de nuevo.")
 
     while True:
         pregunta = input("Tú: ")
         if pregunta.lower() in ["salir", "exit", "quit"]:
             print("Volviendo al menú principal...")
-            is_conversation_active = False # Finalizar conversación
+            is_conversation_active = False
             break
 
         if not pregunta.strip():
@@ -54,13 +55,31 @@ def start_new_chat():
             continue
 
         try:
-            from prompts.prompts import PROMPT_GENERAR_SQL
-            estructura_tabla = ""  # Aquí deberías cargar la estructura de la tabla desde la base de datos
-            respuesta = generar_consulta_sql(modelo, pregunta, estructura_tabla, PROMPT_GENERAR_SQL)
-            print(f"\n🔍 Respuesta generada por {modelo.capitalize()}:\n{respuesta}\n")
-            save_conversation(pregunta, respuesta, current_session_id)
+            estructura_tabla = "" # Remains empty for now
+
+            print(f"Generando consulta SQL con {modelo_sql_generation.capitalize()}...")
+            sql_query = generar_consulta_sql(modelo_sql_generation, pregunta, estructura_tabla, PROMPT_GENERAR_SQL)
+
+            # Check if SQL generation was successful and looks like a SELECT query
+            if not sql_query or "error" in sql_query.lower() or "sorry" in sql_query.lower() or not sql_query.strip().upper().startswith("SELECT"):
+                response_message = f"No se pudo generar una consulta SQL válida o la consulta indica un problema: {sql_query if sql_query else 'Consulta vacía.'}"
+                print(f"\n⚠️ {response_message}\n")
+                save_conversation(pregunta, f"Error generating SQL: {sql_query if sql_query else 'Consulta vacía.'}", current_session_id)
+                continue
+
+            print(f"Ejecutando consulta SQL...")
+            db_results = execute_query(sql_query)
+
+            print(f"Generando respuesta final desde los datos...")
+            natural_language_response = generate_response_from_data(pregunta, db_results, PROMPT_ANALISIS_MUSICAL)
+
+            print(f"\n💬 Respuesta:\n{natural_language_response}\n")
+            save_conversation(pregunta, natural_language_response, current_session_id)
+
         except Exception as e:
-            print(f"❌ Error al generar respuesta: {e}")
+            error_message = f"Error en el flujo del chat: {str(e)}" # str(e) for better error logging
+            print(f"❌ {error_message}")
+            save_conversation(pregunta, error_message, current_session_id)
 
 def view_history():
     print("\n--- Historial de Conversaciones ---")
