@@ -50,6 +50,7 @@ CREATE TABLE audio_features (
 -- =======================================
 CREATE TABLE conversation_history (
     id INT IDENTITY(1,1) PRIMARY KEY,
+    session_id TEXT NOT NULL, -- Added this line
     timestamp DATETIME DEFAULT GETDATE(),
     user_prompt NVARCHAR(MAX) NOT NULL,
     ai_response NVARCHAR(MAX) NOT NULL

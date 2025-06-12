@@ -1,8 +1,9 @@
 from gemini_model import call_gemini, generar_consulta_sql
-from db.history_operations import save_conversation, get_all_conversations, get_conversation_by_id
+from db.history_operations import save_conversation, get_all_conversations, get_conversation_by_session_id, generate_session_id
 
 # Variable global para controlar el estado de la conversación
 is_conversation_active = False
+current_session_id = None
 
 def display_menu():
     print("\n--- Menú Principal ---")
@@ -12,6 +13,7 @@ def display_menu():
 
 def start_new_chat():
     global is_conversation_active
+    global current_session_id
     if is_conversation_active:
         print("Ya hay una conversación en curso.")
         while True:
@@ -30,6 +32,8 @@ def start_new_chat():
 
     # Si llegamos aquí, no había conversación activa o el usuario eligió iniciar una nueva.
     is_conversation_active = True
+    current_session_id = generate_session_id()
+    # print(f"Nueva sesión de conversación iniciada: {current_session_id}") # Optional: for debugging/info
 
     print("\n--- Nuevo Chat con Gemini o Anthropic (Escribe 'salir' para terminar) ---\n")
     modelo = ""
@@ -54,7 +58,7 @@ def start_new_chat():
             estructura_tabla = ""  # Aquí deberías cargar la estructura de la tabla desde la base de datos
             respuesta = generar_consulta_sql(modelo, pregunta, estructura_tabla, PROMPT_GENERAR_SQL)
             print(f"\n🔍 Respuesta generada por {modelo.capitalize()}:\n{respuesta}\n")
-            save_conversation(pregunta, respuesta) 
+            save_conversation(pregunta, respuesta, current_session_id)
         except Exception as e:
             print(f"❌ Error al generar respuesta: {e}")
 
@@ -65,31 +69,36 @@ def view_history():
         print("No hay conversaciones en el historial.")
         return
 
-    for conv in conversations:
-        user_prompt_short = (conv['user_prompt'][:75] + '...') if len(conv['user_prompt']) > 75 else conv['user_prompt']
-        print(f"{conv['id']}. [{conv['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}] Tú: {user_prompt_short}")
+    for conv_session in conversations: # conversations now holds session summaries
+        first_prompt_short = (conv_session['first_user_prompt'][:75] + '...') if len(conv_session['first_user_prompt']) > 75 else conv_session['first_user_prompt']
+        print(f"Sesión ID: {conv_session['session_id']} [{conv_session['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}] Inicio: {first_prompt_short}")
 
     while True:
         try:
-            choice = input("Ingresa el ID de la conversación para ver detalles (o '0' para volver al menú): ")
-            if choice == '0':
+            session_id_choice = input("Ingresa el ID de la sesión para ver detalles (o '0' para volver al menú): ").strip() # Renamed choice for clarity
+            if session_id_choice == '0':
                 break
-            conv_id = int(choice)
-            selected_conv = next((c for c in conversations if c['id'] == conv_id), None)
 
-            if selected_conv:
-                print("\n--- Detalle de la Conversación ---")
-                print(f"ID: {selected_conv['id']}")
-                print(f"Fecha: {selected_conv['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}")
-                print(f"Tú: {selected_conv['user_prompt']}")
-                print(f"Gemini: {selected_conv['ai_response']}")
-                print("------------------------------------\n")
+            # Validate if the chosen session_id exists in the list of displayed sessions
+            # conversations is the list from get_all_conversations()
+            is_valid_session_id = any(cs['session_id'] == session_id_choice for cs in conversations)
+
+            if is_valid_session_id:
+                print("\n--- Detalle de la Conversación (Sesión ID: " + session_id_choice + ") ---")
+                detailed_turns = get_conversation_by_session_id(session_id_choice)
+                if not detailed_turns:
+                    # This case should ideally be rare if is_valid_session_id check is done from the current list
+                    print(f"No se encontraron turnos para la sesión ID: {session_id_choice}")
+                for turn in detailed_turns:
+                    print(f"  ID Turno: {turn['id']} [{turn['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}]") # Added turn ID for context
+                    print(f"  Tú: {turn['user_prompt']}")
+                    print(f"  Gemini: {turn['ai_response']}")
+                    print("  ------------------------------------")
+                print("\n")
             else:
-                print("ID de conversación no válido. Intenta de nuevo.")
-        except ValueError:
-            print("Entrada no válida. Por favor ingresa un número.")
+                print("ID de sesión no válido o no encontrado en la lista actual. Intenta de nuevo.")
         except Exception as e:
-            print(f"Ocurrió un error: {e}")
+            print(f"Ocurrió un error al procesar la selección: {e}")
 
 def cargar_datos():
     from db.load_data import cargar_datos as cargar_datos_db
