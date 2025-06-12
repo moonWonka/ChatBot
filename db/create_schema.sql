@@ -44,3 +44,13 @@ CREATE TABLE audio_features (
     acousticness FLOAT,
     FOREIGN KEY (track_id) REFERENCES tracks(track_id)
 );
+
+-- =======================================
+-- TABLA DE HISTORIAL DE CONVERSACIONES
+-- =======================================
+CREATE TABLE conversation_history (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    timestamp DATETIME DEFAULT GETDATE(),
+    user_prompt NVARCHAR(MAX) NOT NULL,
+    ai_response NVARCHAR(MAX) NOT NULL
+);
