@@ -1,5 +1,5 @@
 from gemini_model import call_gemini
-from db.history_operations import save_conversation, get_all_conversations, get_conversation_by_id # Added new imports
+from db.history_operations import save_conversation, get_all_conversations, get_conversation_by_id
 
 def display_menu():
     print("\n--- Menú Principal ---")
@@ -22,7 +22,7 @@ def start_new_chat():
         try:
             respuesta = call_gemini(pregunta)
             print(f"\n🔍 Respuesta generada por Gemini:\n{respuesta}\n")
-            save_conversation(pregunta, respuesta) # Existing save call
+            save_conversation(pregunta, respuesta) 
         except Exception as e:
             print(f"❌ Error al generar respuesta: {e}")
 
@@ -34,7 +34,6 @@ def view_history():
         return
 
     for conv in conversations:
-        # Truncate long prompts/responses for brevity in the list
         user_prompt_short = (conv['user_prompt'][:75] + '...') if len(conv['user_prompt']) > 75 else conv['user_prompt']
         print(f"{conv['id']}. [{conv['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}] Tú: {user_prompt_short}")
 
@@ -44,9 +43,6 @@ def view_history():
             if choice == '0':
                 break
             conv_id = int(choice)
-            # Find by ID from the already fetched list.
-            # If performance becomes an issue for very long histories,
-            # you might call get_conversation_by_id(conv_id) directly.
             selected_conv = next((c for c in conversations if c['id'] == conv_id), None)
 
             if selected_conv:
@@ -63,10 +59,7 @@ def view_history():
         except Exception as e:
             print(f"Ocurrió un error: {e}")
 
-
 def main():
-    # cargar_datos()
-
     while True:
         display_menu()
         opcion = input("Selecciona una opción: ")
