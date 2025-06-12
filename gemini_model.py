@@ -1,8 +1,7 @@
 from dotenv import load_dotenv
 from config.settings import GEMINI_API_KEY
 from prompts.prompts import PROMPT_ANALISIS_MUSICAL
-from google import genai
-from google.genai import types
+import google.generativeai as genai # Modified import
 
 load_dotenv()
 
@@ -29,14 +28,14 @@ def call_gemini(user_input: str) -> str:
     # Usar generate_prompt para incluir el system prompt
     prompt_text = generate_prompt(user_input)
     contents = [
-        types.Content(
+        genai.types.Content( # Modified usage of types
             role="user", # El rol sigue siendo "user" pero el texto contiene el system prompt + user input
             parts=[
-                types.Part.from_text(text=prompt_text),
+                genai.types.Part.from_text(text=prompt_text), # Modified usage of types
             ],
         ),
     ]
-    generate_content_config = types.GenerateContentConfig(
+    generate_content_config = genai.types.GenerateContentConfig( # Modified usage of types
         response_mime_type="text/plain",
     )
 

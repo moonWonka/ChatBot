@@ -1,18 +1,42 @@
 from gemini_model import call_gemini
 from db.history_operations import save_conversation, get_all_conversations, get_conversation_by_id # Added new imports
 
+is_conversation_active = False
+
 def display_menu():
     print("\n--- Menú Principal ---")
     print("1. Iniciar nuevo chat")
     print("2. Ver historial de conversaciones")
-    print("3. Salir")
+    print("4. Finalizar conversación actual") # New option
+    print("5. Salir") # Adjusted option
 
 def start_new_chat():
+    global is_conversation_active
+    if is_conversation_active:
+        print("Ya hay una conversación en curso.")
+        while True:
+            print("Selecciona una opción:")
+            print("1. Iniciar una nueva conversación (finalizará la actual)")
+            print("2. Volver al menú principal")
+            choice = input("Opción: ")
+            if choice == '1':
+                is_conversation_active = False # End current conversation
+                break # Proceed to start a new one
+            elif choice == '2':
+                print("Volviendo al menú principal...")
+                return # Keep is_conversation_active = True
+            else:
+                print("Opción no válida. Intenta de nuevo.")
+
+    # If we are here, either there was no active conversation,
+    # or the user chose to start a new one.
+    is_conversation_active = True
     print("\n--- Nuevo Chat con Gemini (Escribe 'salir' para terminar) ---\n")
     while True:
         pregunta = input("Tú: ")
         if pregunta.lower() in ["salir", "exit", "quit"]:
             print("Volviendo al menú principal...")
+            is_conversation_active = False # Reset when chat ends
             break
 
         if not pregunta.strip():
@@ -76,11 +100,22 @@ def main():
             start_new_chat()
         elif opcion == '2':
             view_history()
-        elif opcion == '3':
+        elif opcion == '4': # New option handler
+            finalize_conversation()
+        elif opcion == '5': # Adjusted option handler
             print("¡Hasta luego!")
             break
         else:
             print("Opción no válida. Intenta de nuevo.")
+
+# Function to finalize conversation
+def finalize_conversation():
+    global is_conversation_active
+    if is_conversation_active:
+        is_conversation_active = False
+        print("Conversación actual finalizada.")
+    else:
+        print("No hay ninguna conversación activa para finalizar.")
 
 if __name__ == "__main__":
     main()
