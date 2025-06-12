@@ -2,9 +2,12 @@ from openai import OpenAI
 import os
 from dotenv import load_dotenv
 from pydantic import BaseModel
+from config.settings import OPENAI_API_KEY
 
 load_dotenv()
-client = OpenAI()
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+PROMPT_FILE_PATH = "prompts/base_prompt.txt"
 
 class SQLResponse(BaseModel):
     sql_query: str
@@ -12,7 +15,7 @@ class SQLResponse(BaseModel):
     tables_used: list[str]
 
 def load_prompt() -> str:
-    with open("prompts/base_prompt.txt", "r", encoding="utf-8") as f:
+    with open(PROMPT_FILE_PATH, "r", encoding="utf-8") as f:
         return f.read()
 
 def generate_sql_query(user_question: str) -> SQLResponse:

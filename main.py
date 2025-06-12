@@ -1,4 +1,11 @@
 from openai_sql_generator import generate_sql_query
+from db.load_data import main as load_data
+
+def cargar_datos():
+    """Carga los datos desde el CSV a la base de datos."""
+    print("Cargando datos desde el CSV a la base de datos...")
+    load_data()
+    print("✅ Datos cargados correctamente.")
 
 def main():
     print("Chatbot SQL con OpenAI (Escribe 'salir' para terminar)\n")
@@ -19,5 +26,12 @@ def main():
         except Exception as e:
             print(f"❌ Error al generar consulta: {e}")
 
+# Comentar esta línea después de la primera ejecución
+# cargar_datos()
+
 if __name__ == "__main__":
-    main()
+    # Cargar datos desde el CSV a la base de datos
+    cargar_datos()
+
+    # Iniciar la aplicación del chatbot
+    # main()
