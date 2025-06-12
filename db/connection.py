@@ -16,7 +16,8 @@ def get_connection():
             TrustServerCertificate=no;
             Connection Timeout=30;
         """
-        return pyodbc.connect(connection_string)
+        connection = pyodbc.connect(connection_string)
+        return connection
     except Exception as e:
         print("❌ Error al conectar a la base de datos:", e)
         return None
