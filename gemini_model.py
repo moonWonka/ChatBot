@@ -1,14 +1,13 @@
 from dotenv import load_dotenv
 from config.settings import GEMINI_API_KEY
-from prompts.prompts import PROMPT_TENDENCIAS_SENTIMIENTO
-import os
+from prompts.prompts import PROMPT_ANALISIS_MUSICAL
 from google import genai
 from google.genai import types
 
 load_dotenv()
 
 def load_prompt() -> str:
-    return PROMPT_TENDENCIAS_SENTIMIENTO
+    return PROMPT_ANALISIS_MUSICAL
 
 def generate_prompt(user_input: str) -> str:
     """
