@@ -1,7 +1,7 @@
-from gemini_model import call_gemini, generar_consulta_sql, generate_response_from_data # Added generate_response_from_data
+from gemini_model import execute_model
 from db.history_operations import save_conversation, get_all_conversations, get_conversation_by_session_id, generate_session_id
 from db.connection import execute_query # Added
-from prompts.prompts import PROMPT_GENERAR_SQL, PROMPT_ANALISIS_MUSICAL # Added PROMPT_ANALISIS_MUSICAL
+from prompts.prompts import PROMPT_GENERAR_SQL
 
 # Variable global para controlar el estado de la conversación
 is_conversation_active = False
@@ -16,6 +16,8 @@ def display_menu():
 def start_new_chat():
     global is_conversation_active
     global current_session_id
+
+    # Verificar si hay una conversación activa
     if is_conversation_active:
         print("Ya hay una conversación en curso.")
         while True:
@@ -24,24 +26,19 @@ def start_new_chat():
             print("2. Volver al menú principal")
             choice = input("Opción: ")
             if choice == '1':
-                is_conversation_active = False # Finalizar conversación actual
-                break # Proceder a iniciar una nueva
+                is_conversation_active = False  # Finalizar conversación actual
+                break  # Proceder a iniciar una nueva
             elif choice == '2':
                 print("Volviendo al menú principal...")
-                return # Mantener is_conversation_active = True
+                return  # Mantener is_conversation_active = True
             else:
                 print("Opción no válida. Intenta de nuevo.")
 
-    # Si llegamos aquí, no había conversación activa o el usuario eligió iniciar una nueva.
+    # Iniciar nueva conversación
     is_conversation_active = True
     current_session_id = generate_session_id()
 
-    print("\n--- Nuevo Chat (Escribe 'salir' para terminar) ---\n")
-    modelo_sql_generation = "" # Renamed for clarity
-    while modelo_sql_generation.lower() not in ["gemini", "anthropic"]:
-        modelo_sql_generation = input("Selecciona el modelo para generación SQL ('gemini' o 'anthropic'): ").strip()
-        if modelo_sql_generation.lower() not in ["gemini", "anthropic"]:
-            print("⚠️ Modelo no válido. Intenta de nuevo.")
+    modelo_seleccionado = seleccionar_modelo()
 
     while True:
         pregunta = input("Tú: ")
@@ -54,32 +51,57 @@ def start_new_chat():
             print("⚠️ Pregunta vacía. Intenta de nuevo.")
             continue
 
-        try:
-            estructura_tabla = "" # Remains empty for now
+        manejar_pregunta(pregunta, modelo_seleccionado)
 
-            print(f"Generando consulta SQL con {modelo_sql_generation.capitalize()}...")
-            sql_query = generar_consulta_sql(modelo_sql_generation, pregunta, estructura_tabla, PROMPT_GENERAR_SQL)
 
-            # Check if SQL generation was successful and looks like a SELECT query
-            if not sql_query or "error" in sql_query.lower() or "sorry" in sql_query.lower() or not sql_query.strip().upper().startswith("SELECT"):
-                response_message = f"No se pudo generar una consulta SQL válida o la consulta indica un problema: {sql_query if sql_query else 'Consulta vacía.'}"
-                print(f"\n⚠️ {response_message}\n")
-                save_conversation(pregunta, f"Error generating SQL: {sql_query if sql_query else 'Consulta vacía.'}", current_session_id)
-                continue
+def seleccionar_modelo() -> str:
+    """Permite al usuario seleccionar el modelo para generación SQL."""
+    modelo = ""
+    while modelo.lower() not in ["gemini", "anthropic"]:
+        modelo = input("Selecciona el modelo para generación SQL ('gemini' o 'anthropic'): ").strip()
+        if modelo.lower() not in ["gemini", "anthropic"]:
+            print("⚠️ Modelo no válido. Intenta de nuevo.")
+    return modelo
 
-            print(f"Ejecutando consulta SQL...")
-            db_results = execute_query(sql_query)
 
-            print(f"Generando respuesta final desde los datos...")
-            natural_language_response = generate_response_from_data(pregunta, db_results, PROMPT_ANALISIS_MUSICAL)
+def manejar_pregunta(pregunta: str, modelo_seleccionado: str):
+    """Genera la consulta SQL, la ejecuta y responde al usuario."""
+    try:
 
-            print(f"\n💬 Respuesta:\n{natural_language_response}\n")
-            save_conversation(pregunta, natural_language_response, current_session_id)
+        print(f"Generando consulta SQL con {modelo_seleccionado.capitalize()}...")
 
-        except Exception as e:
-            error_message = f"Error en el flujo del chat: {str(e)}" # str(e) for better error logging
-            print(f"❌ {error_message}")
-            save_conversation(pregunta, error_message, current_session_id)
+        
+        sql_query = execute_model(modelo_seleccionado,PROMPT_GENERAR_SQL.format(pregunta=pregunta))
+        print(f"\nConsulta SQL generada:\n{sql_query}\n")
+
+        if not sql_query:
+            response_message = "No se pudo generar una consulta SQL válida."
+            print(f"\n⚠️ {response_message}\n")
+            save_conversation(pregunta, response_message, current_session_id)
+            return
+
+        if sql_query.strip().lower().startswith("no"):
+            response_message = "La consulta generada indica que no está dentro del contexto disponible."
+            print(f"\n⚠️ {response_message}\n")
+            save_conversation(pregunta, response_message, current_session_id)
+            return
+
+        if sql_query.strip().lower().startswith("sql"):
+            sql_query = sql_query[sql_query.lower().find("sql") + 3:].strip()  # Elimina la palabra "sql" al inicio de la consulta, asegurando que se elimine correctamente
+
+        print(f"Ejecutando consulta SQL...{sql_query}")
+        db_results = execute_query(sql_query)
+
+        # Eliminé la llamada a `generate_response_from_data` ya que la respuesta se genera directamente desde la consulta SQL ejecutada en la base de datos.
+        natural_language_response = db_results
+
+        print(f"\n💬 Respuesta:\n{natural_language_response}\n")
+        save_conversation(pregunta, natural_language_response, current_session_id)
+
+    except Exception as e:
+        error_message = f"Error en el flujo del chat: {str(e)}"
+        print(f"❌ {error_message}")
+        save_conversation(pregunta, error_message, current_session_id)
 
 def view_history():
     print("\n--- Historial de Conversaciones ---")
