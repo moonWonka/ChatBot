@@ -39,7 +39,7 @@ def call_gemini(prompt: str) -> str:
 
     response_text = ""
     for chunk in client.models.generate_content_stream(
-        model="gemini-2.0-flash",
+        model="gemini-2.0-flash-lite",
         contents=contents,
         config=generate_content_config,
     ):

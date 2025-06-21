@@ -12,8 +12,10 @@ def save_conversation(user_prompt: str, ai_response: str, session_id: str):
         conn = get_connection()
         if conn:
             cursor = conn.cursor()
-            sql = "INSERT INTO conversation_history (user_prompt, ai_response, session_id) VALUES (?, ?, ?)"
-            cursor.execute(sql, user_prompt, ai_response, session_id)
+            sql = "INSERT INTO conversation_history (session_id, user_prompt, ai_response) VALUES (?, ?, ?)"
+            print(f"SQL: {sql}")
+            print(f"Parámetros: session_id='{session_id}', user_prompt='{user_prompt[:50]}...', ai_response='{ai_response[:50]}...'")
+            cursor.execute(sql, (session_id, user_prompt, ai_response))
             conn.commit()
             print("✅ Conversation saved successfully.")
             cursor.close()
@@ -99,3 +101,81 @@ def get_conversation_by_session_id(session_id: str) -> list:
     except Exception as e:
         print(f"❌ An unexpected error occurred while retrieving conversation details by session ID: {e}")
     return conversation_turns
+
+def get_session_summary(session_id: str) -> dict:
+    """Obtiene un resumen de la sesión con información útil."""
+    try:
+        conn = get_connection()
+        if conn:
+            cursor = conn.cursor()
+            sql = """
+            SELECT 
+                COUNT(*) as total_turns,
+                MIN(timestamp) as session_start,
+                MAX(timestamp) as session_end,
+                MIN(user_prompt) as first_prompt
+            FROM conversation_history 
+            WHERE session_id = ?
+            """
+            cursor.execute(sql, session_id)
+            row = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if row:
+                return {
+                    "total_turns": row.total_turns,
+                    "session_start": row.session_start,
+                    "session_end": row.session_end,
+                    "first_prompt": row.first_prompt,
+                    "duration_minutes": (row.session_end - row.session_start).total_seconds() / 60 if row.session_end != row.session_start else 0
+                }
+    except Exception as e:
+        print(f"❌ Error obteniendo resumen de sesión: {e}")
+    return {}
+
+def delete_session(session_id: str) -> bool:
+    """Elimina una sesión completa del historial."""
+    try:
+        conn = get_connection()
+        if conn:
+            cursor = conn.cursor()
+            sql = "DELETE FROM conversation_history WHERE session_id = ?"
+            cursor.execute(sql, session_id)
+            deleted_rows = cursor.rowcount
+            conn.commit()
+            cursor.close()
+            conn.close()
+            return deleted_rows > 0
+    except Exception as e:
+        print(f"❌ Error eliminando sesión: {e}")
+    return False
+
+def search_conversations(search_term: str) -> list:
+    """Busca conversaciones que contengan el término de búsqueda."""
+    results = []
+    try:
+        conn = get_connection()
+        if conn:
+            cursor = conn.cursor()
+            sql = """
+            SELECT DISTINCT session_id, user_prompt, ai_response, timestamp
+            FROM conversation_history 
+            WHERE LOWER(user_prompt) LIKE LOWER(?) OR LOWER(ai_response) LIKE LOWER(?)
+            ORDER BY timestamp DESC
+            """
+            search_pattern = f"%{search_term}%"
+            cursor.execute(sql, (search_pattern, search_pattern))
+            rows = cursor.fetchall()
+            for row in rows:
+                results.append({
+                    "session_id": row.session_id,
+                    "user_prompt": row.user_prompt,
+                    "ai_response": row.ai_response,
+                    "timestamp": row.timestamp
+                })
+            cursor.close()
+            conn.close()
+    except Exception as e:
+        print(f"❌ Error buscando conversaciones: {e}")
+    return results
