@@ -1,11 +1,9 @@
 from dotenv import load_dotenv
-from config.settings import GEMINI_API_KEY
-from prompts.prompts import PROMPT_GENERAR_SQL
+from config.settings import GEMINI_API_KEY, ANTHROPIC_API_KEY
+from prompts.prompts import PROMPT_GENERAR_SQL, PROMPT_ANALIZAR_RESPUESTA
 from google import genai
 from google.genai import types
 import anthropic
-import os
-import json # Add this import
 
 load_dotenv()
 
@@ -57,7 +55,7 @@ def call_anthropic(prompt: str) -> str:
     Returns:
         str: Respuesta generada por el modelo Anthropic.
     """
-    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     message = client.messages.create(
         model="claude-3-haiku-20240307",
         max_tokens=1000,
@@ -100,30 +98,11 @@ def analizar_respuesta_modelo(respuesta_modelo: str, pregunta: str) -> str:
     Returns:
         str: Respuesta ajustada en lenguaje natural.
     """
-    prompt = f"""Dada la siguiente pregunta:
-    "{pregunta}"
-    Y la siguiente respuesta generada por el modelo:
-    {respuesta_modelo}
-    Ajusta la respuesta para cumplir con las siguientes reglas:
-    1. Responde directamente sin hacer mención a SQL u otros términos técnicos.
-    2. Usa un lenguaje claro, profesional, como si estuvieses conversando con el usuario que efectúa la pregunta.
-    3. Presenta la información de manera organizada y fácil de entender. Trata de estructurar los datos y ordenarlos al momento de responder.
-    4. Si los datos son limitados o incompletos, proporciona una respuesta con la información disponible y no pidas disculpas.
-    5. Utiliza términos propios del ámbito universitario cuando sea posible.
-    6. Si los datos incluyen cifras monetarias, utiliza el símbolo $ e incorpora separadores de miles. Los datos monetarios son siempre en pesos chilenos.
-    7. No agregues información que no esté explícitamente en los datos obtenidos.
-    8. Si la respuesta no puede ser respondida, indica amablemente que no hay datos disponibles e invita a una nueva pregunta.
-    9. No agregues a menos que se solicite un análisis de resultados. Sólo entrégalos de manera entendible sin emitir opinión a menos que se solicite.
-    10. No hagas supuestos ni hagas sugerencias con los datos. Esto es muy importante.
-    11. Envía el resultado de manera precisa y estructurada sin un análisis salvo que se solicite.
-    12. Los resultados son utilizados en una conversión tipo chat, por tanto no saludes ni te despidas. Limita a entregar los resultados de manera clara.
-    13. IMPORTANTE: Nunca menciones datos técnicos ni pidas disculpas.
+    prompt_analisis = PROMPT_ANALIZAR_RESPUESTA.format(
+        pregunta=pregunta,
+        respuesta_modelo=respuesta_modelo
+    )
     
-    ejemplpo exutructura aseguir:
-    
-    """
-    # Aquí podrías integrar un modelo adicional o lógica para ajustar la respuesta según las reglas.
-
-
-     
-    return prompt
+    # Se podría usar cualquiera de los modelos disponibles para el análisis
+    # Por defecto usaremos Gemini para el análisis
+    return call_gemini(prompt_analisis)

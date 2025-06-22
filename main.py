@@ -1,8 +1,12 @@
-from gemini_model import execute_model
+from ia_model import execute_model
 from db.history_operations import save_conversation, get_all_conversations, get_conversation_by_session_id, generate_session_id, get_session_summary, delete_session, search_conversations
 from db.connection import execute_query # Added
-from prompts.prompts import PROMPT_GENERAR_SQL, PROMPT_RESPUESTA_NATURAL, PROMPT_CONTEXTO_CONVERSACIONAL
-from prompts.validation_prompt import PROMPT_VALIDAR_PREGUNTA
+from prompts.prompts import (
+    PROMPT_GENERAR_SQL, 
+    PROMPT_RESPUESTA_NATURAL, 
+    PROMPT_CONTEXTO_CONVERSACIONAL,
+    PROMPT_VALIDAR_PREGUNTA
+)
 
 # Variable global para controlar el estado de la conversación
 is_conversation_active = False
@@ -108,13 +112,12 @@ def seleccionar_modelo() -> str:
 def manejar_pregunta(pregunta: str, modelo_seleccionado: str):
     """Genera la consulta SQL, la ejecuta y responde al usuario."""
     try:
-        print(f"\n🔄 Procesando con {modelo_seleccionado.upper()}...")
+        print(f"\n🔄 Procesando...")
         
-        # NUEVO: Procesar pregunta con contexto conversacional
+        # Procesar pregunta con contexto conversacional
         pregunta_contextualizada = procesar_pregunta_con_contexto(pregunta, modelo_seleccionado, current_session_id)
         
         # Validar si la pregunta es válida antes de generar consulta SQL
-        print("🔍 Validando pregunta...")
         validacion_resultado = execute_model(modelo_seleccionado, PROMPT_VALIDAR_PREGUNTA.format(pregunta=pregunta_contextualizada))
         
         if validacion_resultado.startswith("FUERA_CONTEXTO"):
@@ -128,14 +131,8 @@ def manejar_pregunta(pregunta: str, modelo_seleccionado: str):
         elif not validacion_resultado.startswith("VALIDA"):
             response_message = "No se pudo validar la pregunta. Por favor, reformúlala."
             print(f"\n⚠️  {response_message}\n")
-            return
-
-        print("⚙️  Generando consulta SQL...")
+            return        print("⚙️  Generando consulta SQL...")
         sql_query = execute_model(modelo_seleccionado, PROMPT_GENERAR_SQL.format(pregunta=pregunta_contextualizada))
-        
-        # Mostrar consulta SQL de forma opcional (solo para debug)
-        if sql_query and len(sql_query) < 200:  # Solo mostrar consultas cortas
-            print(f"📝 Consulta: {sql_query}")
 
         if not sql_query:
             response_message = "No se pudo generar una consulta SQL válida."
@@ -152,12 +149,11 @@ def manejar_pregunta(pregunta: str, modelo_seleccionado: str):
             
         # Limpiar backticks y markdown que puedan aparecer
         sql_query = sql_query.replace("```sql", "").replace("```", "").replace("`", "").strip()
-
+        
         print("🔍 Consultando base de datos...")
         db_results = execute_query(sql_query)
 
         # Generar respuesta en lenguaje natural basada en los resultados
-        print("🧠 Generando respuesta...")
         natural_language_response = execute_model(
             modelo_seleccionado, 
             PROMPT_RESPUESTA_NATURAL.format(pregunta=pregunta_contextualizada, resultados_db=db_results)
@@ -573,36 +569,30 @@ def procesar_pregunta_con_contexto(pregunta: str, modelo_seleccionado: str, sess
     """Procesa la pregunta del usuario considerando el contexto conversacional."""
     # Obtener historial de la conversación actual
     historial = obtener_historial_conversacion_actual(session_id)
-    
-    # Si no hay historial previo, la pregunta se mantiene igual
+      # Si no hay historial previo, la pregunta se mantiene igual
     if "No hay historial previo" in historial:
         return pregunta
     
     try:
-        print("🧠 Analizando contexto conversacional...")
-        
         # Usar el prompt de contexto para mejorar la pregunta
         contexto_resultado = execute_model(
-            modelo_seleccionado, 
-            PROMPT_CONTEXTO_CONVERSACIONAL.format(
-                historial_conversacion=historial,
-                pregunta_actual=pregunta
+                modelo_seleccionado,            
+                PROMPT_CONTEXTO_CONVERSACIONAL.format(
+                    historial_conversacion=historial,
+                    pregunta_actual=pregunta
             )
         )
         
         if contexto_resultado.startswith("INDEPENDIENTE:"):
             # La pregunta es clara por sí sola
             pregunta_final = contexto_resultado.replace("INDEPENDIENTE:", "").strip()
-            print("✅ Pregunta clara, no necesita contexto adicional")
             return pregunta_final
         elif contexto_resultado.startswith("CONTEXTUALIZADA:"):
             # La pregunta fue mejorada con contexto
             pregunta_final = contexto_resultado.replace("CONTEXTUALIZADA:", "").strip()
-            print(f"🔄 Pregunta contextualizada: {pregunta_final}")
             return pregunta_final
         else:
             # Fallback: usar pregunta original
-            print("⚠️  No se pudo procesar el contexto, usando pregunta original")
             return pregunta
             
     except Exception as e:

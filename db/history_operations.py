@@ -13,8 +13,6 @@ def save_conversation(user_prompt: str, ai_response: str, session_id: str):
         if conn:
             cursor = conn.cursor()
             sql = "INSERT INTO conversation_history (session_id, user_prompt, ai_response) VALUES (?, ?, ?)"
-            print(f"SQL: {sql}")
-            print(f"Parámetros: session_id='{session_id}', user_prompt='{user_prompt[:50]}...', ai_response='{ai_response[:50]}...'")
             cursor.execute(sql, (session_id, user_prompt, ai_response))
             conn.commit()
             print("✅ Conversation saved successfully.")
